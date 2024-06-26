@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """ Console Module """
 import cmd
+import re
 import sys
 from models.base_model import BaseModel
 from models.__init__ import storage
@@ -113,19 +114,60 @@ class HBNBCommand(cmd.Cmd):
         """ Overrides the emptyline method of CMD """
         pass
 
-    def do_create(self, args):
-        """ Create an object of any class"""
-        if not args:
+    def do_create(self, arg):
+        """Create new instance of a class using the
+        command syntax create <Class name> <param 1>
+        <param 2>...
+        Param syntax: <key name>=<value>
+        """
+        # check if input exists
+        if not arg:
             print("** class name missing **")
             return
-        elif args not in HBNBCommand.classes:
+        #Split string arg using separator " "
+        args = arg.split(' ')
+	    #Use only the first args element as class name
+        class_name = args[0]
+        # Check if the provided class name is valid
+        if class_name not in HBNBCommand.classes:
             print("** class doesn't exist **")
             return
-        new_instance = HBNBCommand.classes[args]()
-        storage.save()
-        print(new_instance.id)
-        storage.save()
 
+        kwargs = {}
+        #Regular expression patterns for different values
+        str_pattern = r'^"([^"\\]*(?:\\.[^"\\]*)*)"$'
+        float_pattern = r'^[+-]?\d+\.\d+$'
+        int_pattern = r'^[+-]?\d+$'
+
+        #Split the remaining elements using separator "="
+        for param in args[1:]:
+            key_value = param.split('=', 1)
+            if len(key_value) != 2:
+                continue
+
+            key, value = key_value
+            value = value.replace('_', ' ')
+
+            # Check for string, float, and integer values
+            str_match = re.match(str_pattern, value)
+            if str_match:
+                kwargs[key] = str_match.group(1).replace('\\"', '"')
+                continue
+
+            if re.match(float_pattern, value):
+                kwargs[key] = float(value)
+                continue
+
+            if re.match(int_pattern, value):
+                kwargs[key] = int(value)
+                continue
+        
+        new_instance = HBNBCommand.classes[class_name]()
+        for key, value in kwargs.items():
+            setattr(new_instance, key, value)
+        new_instance.save()
+        print(new_instance.id)
+        
     def help_create(self):
         """ Help information for the create method """
         print("Creates a class of any type")
